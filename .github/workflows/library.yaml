@@ -124,7 +124,9 @@ jobs:
           done
           echo "Service did not start in time"
           exit 1
-      - name: Run tests
+      - name: Run integration tests
         run: go test -v -race -timeout 4m -tags=integration ./...
+      - name: Run unit tests
+        run: go test -v -race -timeout 10m  ./...
       - name: Stop Service
         run: kill $(cat service_pid.txt)
