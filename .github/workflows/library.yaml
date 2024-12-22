@@ -4,30 +4,10 @@ on:
   pull_request
 
 jobs:
-  coverage:
-    runs-on: ubuntu-latest
-    timeout-minutes: 4
-    if: github.event.pull_request.head.ref == 'hw'
-    permissions: write-all
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: gwatts/go-coverage-action@v2
-        id: coverage
-        with:
-          coverage-threshold: 75
-          fail-coverage: always
-          cover-pkg: ./...
-          ignore-pattern: |
-            \.pb\.go$
-            .json$
-            _mock\.go$
-            _minimock\.go$
-
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 7
+    permissions: write-all
     if: github.event.pull_request.head.ref == 'hw'
     steps:
       - name: Checkout
@@ -68,9 +48,23 @@ jobs:
         with:
           go-version: stable
           cache-dependency-path: ./go.sum
+      - name: Generate code
+        run: |
+          make generate
       - name: Dependencies
         working-directory: ./
         run: go mod tidy
+      - uses: gwatts/go-coverage-action@v2
+        id: coverage
+        with:
+          coverage-threshold: 75
+          fail-coverage: always
+          cover-pkg: ./...
+          ignore-pattern: |
+            \.pb\.go$
+            .json$
+            _mock\.go$
+            _minimock\.go$
       - name: Linter
         uses: golangci/golangci-lint-action@v6
         with:
@@ -92,7 +86,6 @@ jobs:
           echo "GRPC_GATEWAY_PORT=$GRPC_GATEWAY_PORT" >> $GITHUB_ENV
       - name: Start Service
         run: |
-          make generate
           make run &
           echo $! > service_pid.txt
       - name: Install gRPC Health Probe
