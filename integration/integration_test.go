@@ -114,6 +114,39 @@ func TestBookGrpc(t *testing.T) {
 	require.Equal(t, newBook.GetBook().GetAuthorId(), books[0].GetAuthorId())
 }
 
+func TestBookManyAuthorsGrpc(t *testing.T) {
+	ctx := context.Background()
+	client := newGRPCClient(t)
+
+	var (
+		authorBasicName = "Donald Knuth"
+		authorsCount    = 10
+		bookName        = "The Art of Computer Programming"
+	)
+
+	authorIds := make([]string, authorsCount)
+	for i := range authorsCount {
+		author, err := client.RegisterAuthor(ctx, &RegisterAuthorRequest{
+			Name: authorBasicName + strconv.Itoa(rand.N[int](10e9)),
+		})
+		require.NoError(t, err)
+		authorIds[i] = author.Id
+	}
+
+	bookAdded, err := client.AddBook(ctx, &AddBookRequest{
+		Name:     bookName,
+		AuthorId: authorIds,
+	})
+	require.NoError(t, err)
+	require.ElementsMatch(t, bookAdded.Book.AuthorId, authorIds)
+
+	bookReceived, err := client.GetBookInfo(ctx, &GetBookInfoRequest{
+		Id: bookAdded.Book.Id,
+	})
+	require.NoError(t, err)
+	require.EqualExportedValues(t, bookAdded.Book, bookReceived.Book)
+}
+
 func TestConcurrentAccess(t *testing.T) {
 	ctx := context.Background()
 	client := newGRPCClient(t)
@@ -273,6 +306,16 @@ func TestGrpcGateway(t *testing.T) {
 
 	require.Equal(t, author.ID, registerAuthorResponse.ID)
 	require.Equal(t, author.Name, "Name")
+}
+
+func TestGrpcGatewayUnknownUrl(t *testing.T) {
+	unknownUrl := fmt.Sprintf("http://127.0.0.1:%s/v0/not_library/not_author_info",
+		cmp.Or(os.Getenv("GRPC_GATEWAY_PORT"), "8080"))
+
+	response, err := http.Get(unknownUrl)
+
+	require.NoError(t, err)
+	require.Equal(t, response.StatusCode, 404)
 }
 
 func newGRPCClient(t *testing.T) LibraryClient {
