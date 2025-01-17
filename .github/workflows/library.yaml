@@ -43,6 +43,22 @@ jobs:
             echo "After correcting the issue, please push your changes to the branch."
             exit 1
           fi
+      - name: Check if third-party protos was not uploaded to repo
+        run: |
+          proto=$(find . -type f -iname "*.proto" | wc -l | tr -d '[:space:]')
+          if [[ $proto -ne 1 ]]; then
+            echo "Only one proto file expected (library.proto)."
+            echo "Download necessary dependencies via \"generate\" label in makefile."
+            exit 1
+          fi
+      - name: Check if generated code was not uploaded to repo
+        run: |
+          proto=$(find . -not \( -path "./integration" -prune \) -and \( -type f -iname "*.pb.go" -o -iname "*.pb.gw.go" \) | wc -l | tr -d '[:space:]')
+          if [[ $proto -ne 0 ]]; then
+            echo "Generated files should not be uploaded to repo."
+            echo "Instead, define \"generate\" label in makefile."
+            exit 1
+          fi
       - name: Setup go
         uses: actions/setup-go@v5
         with:
